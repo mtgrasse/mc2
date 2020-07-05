@@ -19,6 +19,8 @@ extern void gos_RendererBeginFrame();
 extern void gos_RendererEndFrame();
 extern void gos_RendererHandleEvents();
 extern void gos_RenderUpdateDebugInput();
+extern void gos_RenderEnableDebugDrawCalls();
+extern bool gos_RenderGetEnableDebugDrawCalls();
 
 extern bool gosExitGameOS();
 
@@ -27,11 +29,9 @@ extern void gos_DestroyAudio();
 
 static bool g_exit = false;
 static bool g_focus_lost = false;
-bool g_debug_draw_calls = false;
+#if 0
 static camera g_camera;
-
-input::MouseInfo g_mouse_info;
-input::KeyboardInfo g_keyboard_info;
+#endif
 
 static void handle_key_down( SDL_Keysym* keysym ) {
     switch( keysym->sym ) {
@@ -41,14 +41,14 @@ static void handle_key_down( SDL_Keysym* keysym ) {
             break;
         case 'd':
             if(keysym->mod & KMOD_RALT)
-                g_debug_draw_calls = true;
+                gos_RenderEnableDebugDrawCalls();
             break;
     }
 }
 
 static void process_events( void ) {
 
-    beginUpdateMouseState(&g_mouse_info);
+    input::beginUpdateMouseState();
 
     SDL_Event event;
     while( SDL_PollEvent( &event ) ) {
@@ -66,7 +66,7 @@ static void process_events( void ) {
             handle_key_down( &event.key.keysym );
             // fallthrough
         case SDL_KEYUP:
-            handleKeyEvent(&event, &g_keyboard_info);
+            input::handleKeyEvent(&event);
             break;
         case SDL_QUIT:
             g_exit = true;
@@ -83,20 +83,20 @@ static void process_events( void ) {
             g_focus_lost = true;
             break;
         case SDL_MOUSEMOTION:
-            input::handleMouseMotion(&event, &g_mouse_info); 
+            input::handleMouseMotion(&event); 
             break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
-            //input::handleMouseButton(&event, &g_mouse_info);
+            //input::handleMouseButton(&event);
             break;
         case SDL_MOUSEWHEEL:
-            input::handleMouseWheel(&event, &g_mouse_info);
+            input::handleMouseWheel(&event);
             break;
         }
     }
 
-    input::updateMouseState(&g_mouse_info);
-    input::updateKeyboardState(&g_keyboard_info);
+    input::updateMouseState();
+    input::updateKeyboardState();
 }
 
 extern bool g_disable_quads;
@@ -111,11 +111,12 @@ static void draw_screen( void )
 	const int viewport_w = Environment.drawableWidth;
 	const int viewport_h = Environment.drawableHeight;
     glViewport(0, 0, viewport_w, viewport_h);
-
+#if 0
     mat4 proj;
     g_camera.get_projection(&proj);
     mat4 viewM;
     g_camera.get_view(&viewM);
+#endif
 
 #if 0
     gos_VERTEX q[4];
@@ -227,15 +228,15 @@ int main(int argc, char** argv)
     //signal(SIGTRAP, SIG_IGN);
 
     // gather command line
-    uint32_t cmdline_len = 0;
+	size_t cmdline_len = 0;
     for(int i=0;i<argc;++i) {
         cmdline_len += strlen(argv[i]);
         cmdline_len += 1; // ' '
     }
     char* cmdline = new char[cmdline_len + 1];
-    uint32_t offset = 0;
+    size_t offset = 0;
     for(int i=0;i<argc;++i) {
-        uint32_t arglen = strlen(argv[i]);
+        size_t arglen = strlen(argv[i]);
         memcpy(cmdline + offset, argv[i], arglen);
         cmdline[offset + arglen] = ' ';
         offset += arglen + 1;
@@ -272,7 +273,7 @@ int main(int argc, char** argv)
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 	//glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 76, 1, "My debug group");
 	glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
-	glDebugMessageCallbackARB(&OpenGLDebugLog, NULL);
+	glDebugMessageCallbackARB((GLDEBUGPROC)&OpenGLDebugLog, NULL);
 
 
     SPEW(("GRAPHICS", "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION)));
@@ -310,11 +311,12 @@ int main(int argc, char** argv)
 
     Environment.InitializeGameEngine();
 
-
+#if 0
 	float aspect = (float)w/(float)h;
 	mat4 proj_mat = frustumProjMatrix(-aspect*0.5f, aspect*0.5f, -.5f, .5f, 1.0f, 100.0f);
 	g_camera.set_projection(proj_mat);
 	g_camera.set_view(mat4::translation(vec3(0, 0, -16)));
+#endif
 
 	timing::init();
 
@@ -323,7 +325,7 @@ int main(int argc, char** argv)
 		uint64_t start_tick = timing::gettickcount();
 		timing::sleep(10*1000000);
 
-        if(g_debug_draw_calls) {
+        if(gos_RenderGetEnableDebugDrawCalls()) {
             gos_RenderUpdateDebugInput();
         } else {
             Environment.DoGameLogic();

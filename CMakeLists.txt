@@ -1,4 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
+# select GLVND versus legacy OpenGL libraries
+cmake_policy(SET CMP0072 NEW) # cmake --help-policy CMP0072
 project(mc2)
 
 include(CMakeToolsHelpers OPTIONAL)
@@ -18,11 +20,13 @@ else("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 	message(STATUS "Target is 32 bits")
 endif("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -ggdb")
 set(CMAKE_EXPORT_COMPILE_COMMANDS "ON")
- 
+
+set(CMAKE_MODULE_PATH "${CMAKE_PREFIX_PATH}/cmake")
+set(SDL2_DIR "${CMAKE_PREFIX_PATH}/cmake")
 
 if(NOT MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -ggdb")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs -Werror=array-bounds -Wno-switch -Wwrite-strings -Wno-unknown-warning-option -Wunused-variable") # -fsanitize=address -fno-omit-frame-pointer")
 endif()
 # -Wno-unused-local-typedefs - to disable "typedef was ignored on this declaration"
@@ -37,7 +41,8 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_ARMOR -D_DEBUG -DBUGLOG -DLAB_ONLY")
 #set(CMAKE_CXX_FLAGS_RELWITHDEBINFO" ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DSOME_STUFF")
 if(MSVC)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd /MP")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
 
 
@@ -46,10 +51,11 @@ add_definitions(-DLINUX_BUILD)
 
 find_path(GLEW_INCLUDE "GL/glew.h")
 
-find_package(SDL2 QUIET)
+find_package(SDL2 REQUIRED)
 if(SDL2_FOUND)
     set(SDL_LIBS ${SDL2_LIBRARIES})
     set(SDL_INCLUDES "${SDL2_PREFIX}/include")
+    message("Found SDL2 package ${SDL_LIBS}" )
 else()
     message("sdl2 package was not found, looking for libs and headers separately")
     find_library(SDL2 NAMES "SDL2")
@@ -65,6 +71,7 @@ get_filename_component(COM_PATH2 "./GameOS/gameos" ABSOLUTE)
 
 set(COMMON_INCLUDE_DIRS  ${COM_PATH1} ${COM_PATH2})
 
+include_directories(SD2::SDL2)
 include_directories(${SDL_INCLUDES})
 include_directories(${GLEW_INCLUDE})
 
@@ -170,11 +177,15 @@ set(SOURCES
     )
 
 find_library(SDL2_mixer NAMES "SDL2_mixer")
+find_library(SDL2_ttf NAMES "SDL2_ttf") # needed by text_tool
 find_library(GLEW NAMES "GLEW" "glew32")
 find_library(ZLIB NAMES "z" "zlib")
 
+find_package(GLEW REQUIRED)
+
 # TODO: get rid of gl library by not using old style opengl
 find_package(OpenGL REQUIRED)
+find_package(ZLIB REQUIRED)
 
 message("OPENGL library found in ${OPENGL}")
 message("GLEW library found in ${GLEW}")
@@ -195,9 +206,13 @@ else()
 endif()
 
 message("sdl2 prefix: ${SDL2_PREFIX}")
+message("SDL_LIBS: ${SDL_LIBS}")
+message("zlib: ${ZLIB}")
 
+add_executable(mc2 ${SOURCES} ${MAIN_SRC})
+target_link_libraries(mc2 mclib gosfx mlr stuff gui gameos gameos_main windows ZLIB::ZLIB SDL2::SDL2 SDL2::SDL2main GLEW::GLEW ${SDL2_mixer} ${ADDITIONAL_LIBS} OpenGL::GL)
 
-add_executable(mc2 ${SOURCES})
-target_link_libraries(mc2 mclib gosfx mlr stuff gui gameos windows ${ZLIB} ${SDL_LIBS} ${GLEW} ${SDL2_mixer} ${ADDITIONAL_LIBS} ${OPENGL_gl_LIBRARY})
-
+add_subdirectory("./res" "./out/res")
+add_subdirectory("./data_tools" "./out/data_tools")
+add_subdirectory("./text_tool" "./out/text_tool")
 add_subdirectory("./Viewer" "./out/Viewer")

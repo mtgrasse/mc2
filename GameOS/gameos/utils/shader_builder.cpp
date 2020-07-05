@@ -262,7 +262,7 @@ bool load_shader(const char* fname, std::string& shader_source, std::vector<std:
 {
     const char* psource = glsl_load(fname);
     if(!psource)
-        return 0;
+        return false;
 
     if(!parse_includes(fname, psource, includes, shader_source))
     {
@@ -319,8 +319,8 @@ glsl_shader* glsl_shader::makeShader(Shader_t stype, const char* fname, const ch
     FILE* f = fopen(dump_name, "w");
     if(f) {
         fwrite(shader_source.c_str(), shader_source.size(), 1, f);
+		fclose(f);
     }
-    fclose(f);
 #endif
 
 	
@@ -385,7 +385,7 @@ bool glsl_shader::reload(const char* prefix)
     if(!load_shader(fname_.c_str(), shader_source, shader_includes))
     {
 		log_error("Shader filename: %s, failed to load shader\n", fname_.c_str());
-        return nullptr;
+        return false;
     }
 	
     const char* strings[] = { prefix == nullptr ? "" : prefix, shader_source.c_str() };
